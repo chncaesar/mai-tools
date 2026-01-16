@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAI-UI POC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            height: 100vh;
+        }
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+        .header h1 {
+            font-size: 24px;
+            color: #00d9ff;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        .status-dot.connected {
+            background: #00ff88;
+        }
+        .status-dot.running {
+            background: #ffaa00;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .input-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        #instruction {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 16px;
+        }
+        #instruction:focus {
+            outline: 2px solid #00d9ff;
+        }
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            background: #00d9ff;
+            color: #000;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #00b8d9;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .screenshot-section {
+            flex: 1;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .screenshot-section h3 {
+            margin-bottom: 15px;
+            color: #00d9ff;
+        }
+        .screenshot-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a15;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #screenshot {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .screenshot-placeholder {
+            color: #666;
+            text-align: center;
+        }
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .log-section {
+            flex: 1;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .log-section h3 {
+            margin-bottom: 15px;
+            color: #00d9ff;
+        }
+        #log {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: #0f3460;
+        }
+        .log-entry.error {
+            background: #4a1515;
+            border-left: 3px solid #ff4444;
+        }
+        .log-entry.success {
+            background: #154a15;
+            border-left: 3px solid #00ff88;
+        }
+        .log-entry.action {
+            background: #3d3d15;
+            border-left: 3px solid #ffaa00;
+        }
+        .log-entry .time {
+            color: #666;
+            font-size: 11px;
+        }
+        .log-entry .type {
+            color: #00d9ff;
+            font-weight: bold;
+        }
+        .log-entry .content {
+            margin-top: 5px;
+            word-break: break-all;
+        }
+        .results-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .results-section h3 {
+            margin-bottom: 15px;
+            color: #00d9ff;
+        }
+        #results {
+            font-size: 14px;
+        }
+        .result-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #0f3460;
+            border-radius: 6px;
+        }
+        .result-item .title {
+            font-weight: bold;
+            color: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <div class="header">
+                <h1>MAI-UI Agent POC</h1>
+                <div class="status">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Disconnected</span>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <div class="input-group">
+                    <input type="text" id="instruction"
+                           placeholder="Enter instruction (e.g., Open Settings app)"
+                           onkeypress="if(event.key==='Enter')execute()">
+                    <button id="executeBtn" onclick="execute()">Execute</button>
+                </div>
+            </div>
+
+            <div class="screenshot-section">
+                <h3>Device Screen</h3>
+                <div class="screenshot-container">
+                    <div class="screenshot-placeholder" id="placeholder">
+                        Connect Android device via ADB<br>
+                        Then enter instruction to start
+                    </div>
+                    <img id="screenshot" style="display:none">
+                </div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="log-section">
+                <h3>Execution Log</h3>
+                <div id="log"></div>
+            </div>
+
+            <div class="results-section">
+                <h3>Extracted Data</h3>
+                <div id="results">
+                    <div style="color:#666">No data extracted yet</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isRunning = false;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                updateStatus('connected', 'Connected');
+                addLog('system', 'Connected to server');
+            };
+
+            ws.onclose = () => {
+                updateStatus('disconnected', 'Disconnected');
+                addLog('error', 'Disconnected from server');
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (error) => {
+                addLog('error', 'WebSocket error');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+
+        function handleMessage(data) {
+            switch(data.type) {
+                case 'task_start':
+                    isRunning = true;
+                    updateStatus('running', 'Running...');
+                    addLog('system', `Task started: ${data.instruction}`);
+                    document.getElementById('executeBtn').disabled = true;
+                    break;
+
+                case 'device_connected':
+                    addLog('success', `Device: ${data.device.model} (${data.device.screen})`);
+                    break;
+
+                case 'screenshot':
+                    showScreenshot(data.image);
+                    break;
+
+                case 'step':
+                    const action = data.data.action;
+                    let actionText = `Step ${data.data.step}: ${action.action}`;
+                    if (action.coordinates) {
+                        actionText += ` at (${action.coordinates[0].toFixed(2)}, ${action.coordinates[1].toFixed(2)})`;
+                    }
+                    if (action.text) {
+                        actionText += `: "${action.text}"`;
+                    }
+                    if (action.direction) {
+                        actionText += ` ${action.direction}`;
+                    }
+                    addLog('action', actionText);
+
+                    if (data.data.thought) {
+                        addLog('info', `Thought: ${data.data.thought.substring(0, 200)}...`);
+                    }
+                    break;
+
+                case 'answer':
+                    addLog('success', `Answer: ${data.text}`);
+                    addResult('Answer', data.text);
+                    break;
+
+                case 'task_complete':
+                case 'task_end':
+                    isRunning = false;
+                    updateStatus('connected', 'Connected');
+                    addLog('success', 'Task completed');
+                    document.getElementById('executeBtn').disabled = false;
+                    break;
+
+                case 'error':
+                    addLog('error', data.message);
+                    isRunning = false;
+                    updateStatus('connected', 'Connected');
+                    document.getElementById('executeBtn').disabled = false;
+                    break;
+            }
+        }
+
+        function execute() {
+            const instruction = document.getElementById('instruction').value.trim();
+            if (!instruction) {
+                addLog('error', 'Please enter an instruction');
+                return;
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addLog('error', 'Not connected to server');
+                return;
+            }
+            if (isRunning) {
+                addLog('error', 'Task already running');
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                type: 'execute',
+                instruction: instruction,
+                max_steps: 10
+            }));
+        }
+
+        function updateStatus(status, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            dot.className = 'status-dot';
+            if (status === 'connected') dot.classList.add('connected');
+            if (status === 'running') dot.classList.add('running');
+
+            statusText.textContent = text;
+        }
+
+        function showScreenshot(base64) {
+            const img = document.getElementById('screenshot');
+            const placeholder = document.getElementById('placeholder');
+
+            img.src = 'data:image/png;base64,' + base64;
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+        }
+
+        function addLog(type, message) {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span class="time">${time}</span>
+                <span class="type">[${type.toUpperCase()}]</span>
+                <div class="content">${escapeHtml(message)}</div>
+            `;
+
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function addResult(title, content) {
+            const results = document.getElementById('results');
+            if (results.querySelector('div[style]')) {
+                results.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.innerHTML = `
+                <div class="title">${escapeHtml(title)}</div>
+                <div>${escapeHtml(content)}</div>
+            `;
+            results.appendChild(item);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Connect on page load
+        connect();
+    </script>
+</body>
+</html>
